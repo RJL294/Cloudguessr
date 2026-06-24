@@ -5,13 +5,106 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cloudguessr — guess the place from above</title>
   <meta name="description" content="A GeoGuessr-style game played from moving overhead footage. Guess the location on the map; score by accuracy and speed." />
-  <link rel="preconnect" href="https://unpkg.com" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root{
+      --bg:#0b1020; --panel:#121a30; --ink:#eaf0ff; --muted:#9fb0d6;
+      --accent:#36d1dc; --accent2:#5b86e5; --good:#46d369; --bad:#ff4d4d;
+      --shadow:0 12px 40px rgba(0,0,0,.45);
+    }
+    *{box-sizing:border-box;}
+    html,body{height:100%;margin:0;}
+    /* [hidden] must always win, even over class rules that set display. */
+    [hidden]{display:none !important;}
+    body{
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      background:var(--bg); color:var(--ink); overflow:hidden;
+    }
+    .screen{position:fixed; inset:0; display:none;}
+    .screen.is-active{display:block;}
+    .btn{font:inherit; font-weight:700; cursor:pointer; border:0; border-radius:12px;
+      padding:12px 22px; color:#06122b; transition:transform .08s ease,opacity .2s ease,box-shadow .2s ease;}
+    .btn:active{transform:translateY(1px);}
+    .btn[disabled]{opacity:.45; cursor:not-allowed;}
+    .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));
+      box-shadow:0 8px 24px rgba(54,209,220,.35);}
+    .btn-ghost{background:transparent; color:var(--ink); border:1px solid rgba(255,255,255,.25);}
+    #screen-start,#screen-final{display:none; place-items:center;
+      background:radial-gradient(1200px 600px at 70% -10%,rgba(91,134,229,.25),transparent),
+                 radial-gradient(900px 500px at 10% 110%,rgba(54,209,220,.18),transparent),var(--bg);}
+    #screen-start.is-active,#screen-final.is-active{display:grid;}
+    .start-card{width:min(560px,92vw); background:var(--panel);
+      border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:38px 34px;
+      box-shadow:var(--shadow); text-align:center;}
+    .logo{font-size:44px; margin:0 0 6px; letter-spacing:-1px;}
+    .logo span{background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text; background-clip:text; color:transparent;}
+    .tagline{color:var(--muted); margin:0 0 22px; font-size:17px;}
+    .how{text-align:left; line-height:1.7; list-style:none; padding:0 0 8px; margin:0 0 18px;}
+    .how li{padding-left:26px; position:relative;}
+    .how li::before{content:"▸"; position:absolute; left:4px; color:var(--accent);}
+    .how b{color:#fff;}
+    .meta{color:var(--muted); font-size:13px; margin-top:16px;}
+    .credit-line{position:fixed; bottom:10px; width:100%; text-align:center;
+      color:var(--muted); font-size:11px; opacity:.7;}
+    .stage{position:absolute; inset:0; background:#0b1020;}
+    .flyover,.media-host{position:absolute; inset:0;}
+    .flyover{z-index:1;}
+    .media-host{z-index:1;}
+    .media{width:100%; height:100%; border:0; object-fit:cover;}
+    .fly-status{position:absolute; left:14px; bottom:14px; z-index:5;
+      background:rgba(0,0,0,.6); color:#fff; padding:7px 12px; border-radius:9px;
+      font-size:12px; letter-spacing:.2px;}
+    .media-error{position:absolute; inset:0; z-index:2; display:grid; place-content:center;
+      gap:14px; text-align:center; color:var(--muted); background:rgba(8,12,24,.9);}
+    .flyover .leaflet-control-attribution{background:rgba(0,0,0,.35);
+      color:rgba(255,255,255,.6); font-size:10px;}
+    .hud{position:absolute; top:0; left:0; right:0; z-index:10; display:flex;
+      justify-content:space-between; align-items:center; padding:14px 18px; pointer-events:none;
+      background:linear-gradient(180deg,rgba(5,8,18,.75),transparent);}
+    .hud-left,.hud-right{display:flex; align-items:center; gap:14px;}
+    .hud-logo{font-weight:800; font-size:18px;}
+    .hud-logo span{color:var(--accent);}
+    .hud-round{color:var(--muted); font-size:14px;}
+    .hud-timer,.hud-score{font-variant-numeric:tabular-nums; font-weight:700;
+      background:rgba(0,0,0,.45); padding:6px 12px; border-radius:10px;}
+    .hud-timer{color:var(--accent);}
+    .guess-panel{position:absolute; right:16px; bottom:16px; z-index:20;
+      width:clamp(240px,32vw,420px); background:var(--panel);
+      border:1px solid rgba(255,255,255,.12); border-radius:16px; box-shadow:var(--shadow);
+      overflow:hidden; transition:width .22s ease,height .22s ease; opacity:.96;}
+    .guess-panel:hover{opacity:1;}
+    .guess-panel.expanded{width:min(70vw,820px);}
+    .guess-map{height:clamp(180px,26vh,300px); transition:height .22s ease;}
+    .guess-panel.expanded .guess-map{height:min(64vh,560px);}
+    .guess-actions{display:flex; align-items:center; justify-content:space-between;
+      gap:10px; padding:10px 12px;}
+    .guess-hint{color:var(--muted); font-size:13px;}
+    .map-expand{position:absolute; top:8px; right:8px; z-index:30; width:30px; height:30px;
+      border-radius:8px; cursor:pointer; border:0; background:rgba(0,0,0,.55); color:#fff; font-size:15px;}
+    #screen-result .result-map{position:absolute; inset:0;}
+    .result-card{position:absolute; left:50%; bottom:22px; transform:translateX(-50%); z-index:10;
+      width:min(560px,94vw); text-align:center; background:var(--panel);
+      border:1px solid rgba(255,255,255,.1); border-radius:18px; padding:20px 22px; box-shadow:var(--shadow);}
+    .result-card h2{margin:0 0 4px; font-size:22px;}
+    .result-dist{color:var(--muted); margin:0 0 14px;}
+    .result-scores{display:flex; justify-content:center; gap:26px; margin-bottom:12px;}
+    .result-scores div{display:flex; flex-direction:column;}
+    .result-scores span{font-size:26px; font-weight:800; font-variant-numeric:tabular-nums;}
+    .result-scores small{color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.5px;}
+    .result-scores .big span{color:var(--accent); font-size:34px;}
+    .result-credit{color:var(--muted); font-size:11px; margin:4px 0 14px;}
+    .final-total{font-size:20px; margin:4px 0 18px;}
+    .final-total span{font-size:40px; font-weight:800; color:var(--accent);}
+    .final-breakdown{list-style:none; padding:0; margin:0 0 22px; text-align:left;}
+    .final-breakdown li{display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center;
+      padding:9px 4px; border-bottom:1px solid rgba(255,255,255,.07);}
+    .fb-meta{color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums;}
+    .fb-pts{font-weight:800; color:var(--accent); font-variant-numeric:tabular-nums; min-width:56px; text-align:right;}
+    @media (max-width:560px){ .guess-panel{left:12px; right:12px; width:auto;} .hud-logo{font-size:16px;} }
+  </style>
 </head>
 <body>
-  <!-- ============ START SCREEN ============ -->
   <section id="screen-start" class="screen is-active">
     <div class="start-card">
       <h1 class="logo">Cloud<span>guessr</span></h1>
@@ -24,22 +117,19 @@
       <button id="btn-start" class="btn btn-primary">Play</button>
       <p class="meta" id="start-meta">Loading rounds…</p>
     </div>
-    <footer class="credit-line">Imagery © Esri & contributors · Map © OpenStreetMap contributors</footer>
+    <footer class="credit-line">Imagery © Esri / Google · Map © OpenStreetMap contributors</footer>
   </section>
 
-  <!-- ============ GAME SCREEN ============ -->
   <section id="screen-game" class="screen">
-    <!-- Footage stage -->
     <div id="stage" class="stage">
       <div id="flyover" class="flyover"></div>
       <div id="media-host" class="media-host" hidden></div>
+      <div id="fly-status" class="fly-status" hidden></div>
       <div id="media-error" class="media-error" hidden>
         <p>This footage couldn't load.</p>
         <button id="btn-skip" class="btn btn-ghost">Skip round</button>
       </div>
     </div>
-
-    <!-- Top HUD -->
     <header class="hud">
       <div class="hud-left">
         <span class="hud-logo">Cloud<span>guessr</span></span>
@@ -50,8 +140,6 @@
         <span class="hud-score" id="hud-score">0 pts</span>
       </div>
     </header>
-
-    <!-- Guess panel (expanding map) -->
     <div id="guess-panel" class="guess-panel">
       <div id="guess-map" class="guess-map"></div>
       <div class="guess-actions">
@@ -62,7 +150,6 @@
     </div>
   </section>
 
-  <!-- ============ ROUND RESULT ============ -->
   <section id="screen-result" class="screen">
     <div id="result-map" class="result-map"></div>
     <div class="result-card">
@@ -78,19 +165,318 @@
     </div>
   </section>
 
-  <!-- ============ FINAL SUMMARY ============ -->
   <section id="screen-final" class="screen">
     <div class="start-card">
       <h1 class="logo">Nice flying.</h1>
-      <p class="final-total"><span id="final-total">0</span> <small>/ <span id="final-max">0</span> points</span></p>
+      <p class="final-total"><span id="final-total">0</span> <small>/ <span id="final-max">0</span> points</small></p>
       <ul id="final-breakdown" class="final-breakdown"></ul>
       <button id="btn-again" class="btn btn-primary">Play again</button>
     </div>
   </section>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="assets/flyover.js"></script>
-  <script src="assets/app.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+  /* ================= ROUND DATA ================= */
+  window.CLOUDGUESSR_ROUNDS = {
+    config: { roundsPerGame: 5, roundTimeLimit: 90, maxAccuracyScore: 5000, maxSpeedBonus: 1000 },
+    rounds: [
+      { id:"eiffel", type:"synthesized", lat:48.8584, lng:2.2945, startZoom:17.4, driftZoom:16.6, label:"Eiffel Tower — Paris, France" },
+      { id:"liberty", type:"synthesized", lat:40.6892, lng:-74.0445, startZoom:17.6, driftZoom:16.8, label:"Statue of Liberty — New York, USA" },
+      { id:"colosseum", type:"synthesized", lat:41.8902, lng:12.4922, startZoom:17.4, driftZoom:16.6, label:"Colosseum — Rome, Italy" },
+      { id:"giza", type:"synthesized", lat:29.9792, lng:31.1342, startZoom:16.6, driftZoom:15.8, label:"Great Pyramids — Giza, Egypt" },
+      { id:"sydney", type:"synthesized", lat:-33.8568, lng:151.2153, startZoom:17.2, driftZoom:16.4, label:"Sydney Opera House — Sydney, Australia" },
+      { id:"rio", type:"synthesized", lat:-22.9519, lng:-43.2105, startZoom:16.8, driftZoom:16.0, label:"Christ the Redeemer — Rio de Janeiro, Brazil" },
+      { id:"dubai", type:"synthesized", lat:25.1972, lng:55.2744, startZoom:16.8, driftZoom:16.0, label:"Burj Khalifa — Dubai, UAE" },
+      { id:"taj", type:"synthesized", lat:27.1751, lng:78.0421, startZoom:17.2, driftZoom:16.4, label:"Taj Mahal — Agra, India" },
+      { id:"goldengate", type:"synthesized", lat:37.8199, lng:-122.4783, startZoom:16.4, driftZoom:15.6, label:"Golden Gate Bridge — San Francisco, USA" },
+      { id:"venice", type:"synthesized", lat:45.4371, lng:12.3326, startZoom:16.6, driftZoom:15.8, label:"Grand Canal — Venice, Italy" },
+      { id:"machupicchu", type:"synthesized", lat:-13.1631, lng:-72.5450, startZoom:16.8, driftZoom:16.0, label:"Machu Picchu — Peru" },
+      { id:"bigben", type:"synthesized", lat:51.4994, lng:-0.1245, startZoom:17.4, driftZoom:16.6, label:"Palace of Westminster — London, UK" },
+      { id:"capetown", type:"synthesized", lat:-33.9628, lng:18.4098, startZoom:15.4, driftZoom:14.6, label:"Table Mountain — Cape Town, South Africa" },
+      { id:"fuji", type:"synthesized", lat:35.3606, lng:138.7274, startZoom:14.4, driftZoom:13.6, label:"Mount Fuji — Japan" },
+      { id:"grandcanyon", type:"synthesized", lat:36.1069, lng:-112.1129, startZoom:14.8, driftZoom:14.0, label:"Grand Canyon — Arizona, USA" }
+    ]
+  };
+
+  /* ================= FLY-OVER (synthesized satellite footage) ================= */
+  var Flyover = (function () {
+    // Multiple satellite sources; if one won't paint, fail over to the next.
+    var SOURCES = [
+      { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr:'Imagery © Esri, Maxar, Earthstar Geographics' },
+      { url:'https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+        subdomains:['mt0','mt1','mt2','mt3'], attr:'Imagery © Google' }
+    ];
+
+    function setStatus(msg){
+      var el = document.getElementById('fly-status');
+      if (!el) return;
+      if (msg){ el.textContent = msg; el.hidden = false; } else { el.hidden = true; }
+    }
+
+    function Flyover(elId){
+      this.map = L.map(elId, {
+        zoomControl:false, attributionControl:true, zoomSnap:0,
+        dragging:false, scrollWheelZoom:false, doubleClickZoom:false,
+        touchZoom:false, boxZoom:false, keyboard:false, inertia:false
+      });
+      this.srcIndex = 0;
+      this.layer = null;
+      this._timer = null;
+      this._stopped = true;
+      this._loaded = false;
+      this._addTiles(0);
+    }
+
+    Flyover.prototype._addTiles = function(i){
+      var s = SOURCES[i], self = this;
+      var opts = { maxZoom:19, keepBuffer:8, attribution:s.attr };
+      if (s.subdomains) opts.subdomains = s.subdomains;
+      this.layer = L.tileLayer(s.url, opts).addTo(this.map);
+      this._loaded = false;
+      var errs = 0;
+      this.layer.on('load', function(){ self._loaded = true; setStatus(''); });
+      this.layer.on('tileerror', function(){
+        errs++;
+        if (errs > 3 && !self._loaded && self.srcIndex === i && i + 1 < SOURCES.length){
+          self.srcIndex = i + 1;
+          self.map.removeLayer(self.layer);
+          setStatus('Switching satellite source…');
+          self._addTiles(i + 1);
+        }
+      });
+    };
+
+    Flyover.prototype.play = function(round){
+      this.stop();
+      var map = this.map, self = this;
+      var lat = round.lat, lng = round.lng;
+      var zoom = round.driftZoom != null ? round.driftZoom
+               : (round.startZoom != null ? round.startZoom - 0.6 : 16);
+      setStatus('Loading satellite imagery…');
+      map.invalidateSize(false);
+      map.setView([lat, lng], zoom, { animate:false });
+
+      var radiusM = 650 * Math.pow(2, 16 - zoom);
+      var mLat = 111320, mLng = 111320 * Math.cos(lat * Math.PI/180);
+      var startAngle = (Math.abs(lat*7 + lng*13) % 360) * Math.PI/180;
+      var STEPS = 64, STEP_MS = 1800, i = 0;
+      this._stopped = false;
+
+      function tick(){
+        if (self._stopped) return;
+        i++;
+        var a = startAngle + (i/STEPS)*2*Math.PI;
+        var dLat = (radiusM*Math.sin(a))/mLat;
+        var dLng = (radiusM*Math.cos(a))/Math.max(1,mLng);
+        map.panTo([lat+dLat, lng+dLng], { animate:true, duration:STEP_MS/1000, easeLinearity:1 });
+        self._timer = setTimeout(tick, STEP_MS);
+      }
+      // Second sizing pass guards a 0-size race on first paint, then drift.
+      this._timer = setTimeout(function(){
+        if (self._stopped) return;
+        map.invalidateSize(false);
+        map.setView([lat, lng], zoom, { animate:false });
+        self._timer = setTimeout(tick, STEP_MS);
+      }, 350);
+    };
+
+    Flyover.prototype.stop = function(){
+      this._stopped = true;
+      if (this._timer){ clearTimeout(this._timer); this._timer = null; }
+    };
+
+    return Flyover;
+  })();
+
+  /* ================= GAME ENGINE ================= */
+  (function () {
+    'use strict';
+    var $ = function (id){ return document.getElementById(id); };
+    function show(screenId){
+      var s = document.querySelectorAll('.screen');
+      for (var i=0;i<s.length;i++) s[i].classList.remove('is-active');
+      $(screenId).classList.add('is-active');
+    }
+    function clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+    function haversine(a,b){
+      var R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLng=(b.lng-a.lng)*Math.PI/180;
+      var la1=a.lat*Math.PI/180, la2=b.lat*Math.PI/180;
+      var h=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)*Math.sin(dLng/2);
+      return 2*R*Math.asin(Math.min(1,Math.sqrt(h)));
+    }
+    function fmtDist(km){
+      if (km<1) return Math.round(km*1000)+' m';
+      if (km<100) return km.toFixed(1)+' km';
+      return Math.round(km).toLocaleString()+' km';
+    }
+    function accuracyScore(km,max){ return Math.round(max*Math.exp(-km/2000)); }
+    function speedBonus(used,limit,max){ return Math.round(max*(1-clamp(used/limit,0,1))); }
+    function shuffle(arr){
+      var a=arr.slice();
+      for (var i=a.length-1;i>0;i--){
+        var j=Math.floor((i+1)*(Math.sin(i*99.7+a.length)*0.5+0.5)); j=clamp(j,0,i);
+        var t=a[i]; a[i]=a[j]; a[j]=t;
+      }
+      return a;
+    }
+
+    var CFG=null, POOL=[], game=null, flyover=null;
+    var guessMap=null, guessMarker=null, guess=null, resultMap=null;
+    var roundTimer=null, secondsLeft=0;
+
+    function useData(data){
+      CFG=data.config;
+      POOL=(data.rounds||[]).filter(function(r){ return !r.disabled; });
+      $('start-meta').textContent = POOL.length+' locations loaded · '+CFG.roundsPerGame+' per game';
+      $('btn-start').disabled=false;
+    }
+    useData(window.CLOUDGUESSR_ROUNDS);
+
+    function newGame(){
+      var picks=shuffle(POOL).slice(0,Math.min(CFG.roundsPerGame,POOL.length));
+      game={rounds:picks, idx:0, scores:[]};
+      show('screen-game');
+      setupGuessMap();
+      startRound();
+    }
+
+    function startRound(){
+      var round=game.rounds[game.idx];
+      guess=null;
+      if (guessMarker){ guessMap.removeLayer(guessMarker); guessMarker=null; }
+      $('btn-guess').disabled=true;
+      $('guess-hint').textContent='Click the map to place your guess';
+      $('hud-round').textContent='Round '+(game.idx+1)+' / '+game.rounds.length;
+      $('hud-score').textContent=totalScore()+' pts';
+      $('guess-panel').classList.remove('expanded');
+      $('media-error').hidden=true;
+      playFootage(round);
+      secondsLeft=CFG.roundTimeLimit;
+      $('hud-timer').textContent=secondsLeft+'s';
+      clearInterval(roundTimer);
+      roundTimer=setInterval(function(){
+        secondsLeft--;
+        $('hud-timer').textContent=Math.max(0,secondsLeft)+'s';
+        if (secondsLeft<=0) submitGuess(true);
+      },1000);
+    }
+
+    function playFootage(round){
+      var flyEl=$('flyover'), host=$('media-host');
+      host.hidden=true; host.innerHTML='';
+      flyEl.style.display='none';
+      if (round.type==='synthesized'){
+        flyEl.style.display='';
+        if (!flyover) flyover=new Flyover('flyover');
+        flyover.play(round);
+        return;
+      }
+      if (round.type==='youtube'){
+        var src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(round.videoId)+
+          '?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&playsinline=1&start='+(round.start||0);
+        var f=document.createElement('iframe');
+        f.className='media'; f.allow='autoplay; encrypted-media; picture-in-picture';
+        f.setAttribute('frameborder','0'); f.src=src;
+        host.appendChild(f); host.hidden=false; return;
+      }
+      if (round.type==='video'){
+        var v=document.createElement('video');
+        v.className='media'; v.src=round.src; v.autoplay=true; v.muted=true; v.loop=true; v.playsInline=true;
+        if (round.poster) v.poster=round.poster;
+        v.onerror=mediaError;
+        host.appendChild(v); host.hidden=false;
+        v.play().catch(function(){}); return;
+      }
+      mediaError();
+    }
+    function mediaError(){ $('media-host').hidden=true; $('media-error').hidden=false; }
+    function stopFootage(){ if (flyover) flyover.stop(); $('media-host').innerHTML=''; var s=$('fly-status'); if(s) s.hidden=true; }
+
+    function setupGuessMap(){
+      if (guessMap) return;
+      guessMap=L.map('guess-map',{worldCopyJump:true, zoomControl:true}).setView([20,0],2);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(guessMap);
+      guessMap.on('click',function(e){
+        guess={lat:e.latlng.lat, lng:e.latlng.lng};
+        if (!guessMarker) guessMarker=L.marker(e.latlng,{draggable:true}).addTo(guessMap);
+        else guessMarker.setLatLng(e.latlng);
+        guessMarker.on('drag',function(ev){ guess={lat:ev.latlng.lat, lng:ev.latlng.lng}; });
+        $('btn-guess').disabled=false;
+        $('guess-hint').textContent='Move the pin or press Guess';
+      });
+    }
+
+    function submitGuess(timedOut){
+      if (!game) return;
+      clearInterval(roundTimer);
+      var round=game.rounds[game.idx], actual={lat:round.lat, lng:round.lng};
+      var g=guess||{lat:-actual.lat, lng:actual.lng+180};
+      var km=haversine(g,actual);
+      var used=clamp(CFG.roundTimeLimit-secondsLeft,0,CFG.roundTimeLimit);
+      var acc=guess?accuracyScore(km,CFG.maxAccuracyScore):0;
+      var spd=guess?speedBonus(used,CFG.roundTimeLimit,CFG.maxSpeedBonus):0;
+      game.scores.push({round:round, km:km, acc:acc, spd:spd, total:acc+spd, guessed:!!guess, timedOut:!!timedOut, guess:guess});
+      stopFootage();
+      showResult();
+    }
+
+    function showResult(){
+      var s=game.scores[game.scores.length-1], round=s.round;
+      show('screen-result');
+      $('result-place').textContent=round.label||'Somewhere on Earth';
+      $('result-dist').textContent=s.guessed?('You were '+fmtDist(s.km)+' away'):(s.timedOut?'Out of time — no guess':'No guess placed');
+      $('result-acc').textContent=s.acc; $('result-speed').textContent=s.spd; $('result-total').textContent=s.total;
+      $('result-credit').textContent=round.credit||'';
+      if (!resultMap){
+        resultMap=L.map('result-map',{zoomControl:true, worldCopyJump:true});
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(resultMap);
+      }
+      resultMap.eachLayer(function(layer){ if (!(layer instanceof L.TileLayer)) resultMap.removeLayer(layer); });
+      var actual=L.latLng(round.lat,round.lng);
+      L.marker(actual).addTo(resultMap).bindTooltip('Actual');
+      setTimeout(function(){ resultMap.invalidateSize(); },30);
+      if (s.guess){
+        var g=L.latLng(s.guess.lat,s.guess.lng);
+        L.circleMarker(g,{radius:7, color:'#ff4d4d', fillColor:'#ff4d4d', fillOpacity:.9}).addTo(resultMap).bindTooltip('Your guess');
+        L.polyline([g,actual],{color:'#fff', weight:2, dashArray:'6 6'}).addTo(resultMap);
+        resultMap.fitBounds(L.latLngBounds([g,actual]).pad(0.4));
+      } else { resultMap.setView(actual,5); }
+    }
+
+    function totalScore(){ return game.scores.reduce(function(n,s){ return n+s.total; },0); }
+
+    function nextRound(){
+      game.idx++;
+      if (game.idx>=game.rounds.length){ showFinal(); return; }
+      show('screen-game'); startRound();
+    }
+
+    function showFinal(){
+      show('screen-final');
+      var max=game.rounds.length*(CFG.maxAccuracyScore+CFG.maxSpeedBonus);
+      $('final-total').textContent=totalScore().toLocaleString();
+      $('final-max').textContent=max.toLocaleString();
+      var ul=$('final-breakdown'); ul.innerHTML='';
+      game.scores.forEach(function(s,i){
+        var li=document.createElement('li');
+        li.innerHTML='<span class="fb-place">'+(i+1)+'. '+(s.round.label||'Unknown')+'</span>'+
+          '<span class="fb-meta">'+(s.guessed?fmtDist(s.km):'—')+'</span>'+
+          '<span class="fb-pts">'+s.total+'</span>';
+        ul.appendChild(li);
+      });
+    }
+
+    $('btn-start').addEventListener('click',newGame);
+    $('btn-again').addEventListener('click',newGame);
+    $('btn-guess').addEventListener('click',function(){ submitGuess(false); });
+    $('btn-skip').addEventListener('click',function(){ submitGuess(false); });
+    $('btn-next').addEventListener('click',nextRound);
+    $('btn-expand').addEventListener('click',function(){
+      $('guess-panel').classList.toggle('expanded');
+      setTimeout(function(){ if (guessMap) guessMap.invalidateSize(); },220);
+    });
+  })();
+  </script>
 </body>
 </html>
