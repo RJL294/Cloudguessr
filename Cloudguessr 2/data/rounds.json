@@ -1,0 +1,181 @@
+{
+  "config": {
+    "roundsPerGame": 5,
+    "roundTimeLimit": 90,
+    "maxAccuracyScore": 5000,
+    "maxSpeedBonus": 1000
+  },
+  "rounds": [
+    {
+      "id": "eiffel",
+      "type": "synthesized",
+      "lat": 48.8584,
+      "lng": 2.2945,
+      "startZoom": 17.4,
+      "driftZoom": 16.6,
+      "label": "Eiffel Tower — Paris, France",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "liberty",
+      "type": "synthesized",
+      "lat": 40.6892,
+      "lng": -74.0445,
+      "startZoom": 17.6,
+      "driftZoom": 16.8,
+      "label": "Statue of Liberty — New York, USA",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "colosseum",
+      "type": "synthesized",
+      "lat": 41.8902,
+      "lng": 12.4922,
+      "startZoom": 17.4,
+      "driftZoom": 16.6,
+      "label": "Colosseum — Rome, Italy",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "giza",
+      "type": "synthesized",
+      "lat": 29.9792,
+      "lng": 31.1342,
+      "startZoom": 16.6,
+      "driftZoom": 15.8,
+      "label": "Great Pyramids — Giza, Egypt",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "sydney",
+      "type": "synthesized",
+      "lat": -33.8568,
+      "lng": 151.2153,
+      "startZoom": 17.2,
+      "driftZoom": 16.4,
+      "label": "Sydney Opera House — Sydney, Australia",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "rio",
+      "type": "synthesized",
+      "lat": -22.9519,
+      "lng": -43.2105,
+      "startZoom": 16.8,
+      "driftZoom": 16.0,
+      "label": "Christ the Redeemer — Rio de Janeiro, Brazil",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "dubai",
+      "type": "synthesized",
+      "lat": 25.1972,
+      "lng": 55.2744,
+      "startZoom": 16.8,
+      "driftZoom": 16.0,
+      "label": "Burj Khalifa — Dubai, UAE",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "taj",
+      "type": "synthesized",
+      "lat": 27.1751,
+      "lng": 78.0421,
+      "startZoom": 17.2,
+      "driftZoom": 16.4,
+      "label": "Taj Mahal — Agra, India",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "goldengate",
+      "type": "synthesized",
+      "lat": 37.8199,
+      "lng": -122.4783,
+      "startZoom": 16.4,
+      "driftZoom": 15.6,
+      "label": "Golden Gate Bridge — San Francisco, USA",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "venice",
+      "type": "synthesized",
+      "lat": 45.4371,
+      "lng": 12.3326,
+      "startZoom": 16.6,
+      "driftZoom": 15.8,
+      "label": "Grand Canal — Venice, Italy",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "machupicchu",
+      "type": "synthesized",
+      "lat": -13.1631,
+      "lng": -72.5450,
+      "startZoom": 16.8,
+      "driftZoom": 16.0,
+      "label": "Machu Picchu — Peru",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "bigben",
+      "type": "synthesized",
+      "lat": 51.4994,
+      "lng": -0.1245,
+      "startZoom": 17.4,
+      "driftZoom": 16.6,
+      "label": "Palace of Westminster — London, UK",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "capetown",
+      "type": "synthesized",
+      "lat": -33.9628,
+      "lng": 18.4098,
+      "startZoom": 15.4,
+      "driftZoom": 14.6,
+      "label": "Table Mountain — Cape Town, South Africa",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "fuji",
+      "type": "synthesized",
+      "lat": 35.3606,
+      "lng": 138.7274,
+      "startZoom": 14.4,
+      "driftZoom": 13.6,
+      "label": "Mount Fuji — Japan",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "grandcanyon",
+      "type": "synthesized",
+      "lat": 36.1069,
+      "lng": -112.1129,
+      "startZoom": 14.8,
+      "driftZoom": 14.0,
+      "label": "Grand Canyon — Arizona, USA",
+      "credit": "Imagery © Esri, Maxar, Earthstar Geographics"
+    },
+    {
+      "id": "example-youtube",
+      "type": "youtube",
+      "videoId": "REPLACE_WITH_VIDEO_ID",
+      "start": 0,
+      "lat": 64.1466,
+      "lng": -21.9426,
+      "label": "Example — Reykjavík, Iceland (replace videoId)",
+      "credit": "Add a real, embeddable drone clip + verify its coordinates",
+      "disabled": true
+    },
+    {
+      "id": "example-video",
+      "type": "video",
+      "src": "https://upload.wikimedia.org/REPLACE_WITH_PUBLIC_DOMAIN_FILE.webm",
+      "lat": 38.8895,
+      "lng": -77.0353,
+      "label": "Example — public-domain MP4/WebM (replace src)",
+      "credit": "Use a public-domain / CC clip with known coordinates",
+      "disabled": true
+    }
+  ]
+}

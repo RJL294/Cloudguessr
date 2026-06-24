@@ -1,0 +1,14 @@
+{
+  "name": "cloudguessr",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A GeoGuessr-style game played from moving overhead footage — guess the location, score by accuracy and speed.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "serve": "node scripts/serve.js",
+    "dev": "node scripts/serve.js"
+  }
+}
