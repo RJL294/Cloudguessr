@@ -1,9 +1,11 @@
 /* flyover.js — the "synthesized" footage type.
  *
- * Creates the moving overhead-shot effect by slowly orbiting and breathing the
- * zoom over Esri World Imagery satellite tiles (free, no API key). The map is
- * fully non-interactive so it reads as footage, not a slippy map, and the
- * imagery carries no place labels — nothing leaks the answer.
+ * Creates the moving overhead-shot effect by slowly orbiting Esri World Imagery
+ * satellite tiles (free, no API key). It sets the view once so the tiles load,
+ * then uses Leaflet's own smooth pan-animation to drift between waypoints around
+ * the target — reliable tile rendering plus continuous motion. The map is fully
+ * non-interactive so it reads as footage, and the imagery has no place labels,
+ * so nothing leaks the answer.
  */
 (function (global) {
   'use strict';
@@ -15,70 +17,77 @@
     this.map = L.map(elId, {
       zoomControl: false,
       attributionControl: true,
-      zoomSnap: 0,            // allow fractional zoom for smooth "altitude" drift
+      zoomSnap: 0,
       dragging: false,
       scrollWheelZoom: false,
       doubleClickZoom: false,
       touchZoom: false,
       boxZoom: false,
       keyboard: false,
-      inertia: false,
-      fadeAnimation: true
+      inertia: false
     });
     L.tileLayer(ESRI_IMAGERY, {
       maxZoom: 19,
+      keepBuffer: 6,           // preload surrounding tiles so the drift reveals loaded imagery
       attribution: 'Imagery © Esri'
     }).addTo(this.map);
 
-    this._raf = null;
-    this._t0 = null;
+    this._timer = null;
+    this._stopped = true;
   }
 
   // Begin (or restart) the orbiting fly-over around a round's target.
   Flyover.prototype.play = function (round) {
     this.stop();
     var map = this.map;
-    map.invalidateSize(false);
-
     var lat = round.lat;
     var lng = round.lng;
-    var startZoom = round.startZoom != null ? round.startZoom : 16.5;
-    var driftZoom = round.driftZoom != null ? round.driftZoom : startZoom - 0.8;
+    var zoom = round.driftZoom != null ? round.driftZoom
+             : (round.startZoom != null ? round.startZoom - 0.6 : 16);
 
-    // Orbit radius in degrees — a little wider when zoomed out so there is
-    // always fresh landscape sliding through frame to read clues from.
-    var radius = 0.0016 * Math.pow(2, 16 - driftZoom);
+    // Paint imagery immediately so the player always sees the location, even if
+    // the drift below somehow stalls.
+    map.invalidateSize(false);
+    map.setView([lat, lng], zoom, { animate: false });
+
+    // Orbit radius in metres — wider when zoomed out so there is always fresh
+    // landscape sliding through frame to read clues from.
+    var radiusM = 650 * Math.pow(2, 16 - zoom);
+    var mPerDegLat = 111320;
+    var mPerDegLng = 111320 * Math.cos(lat * Math.PI / 180);
     var startAngle = (Math.abs(lat * 7 + lng * 13) % 360) * Math.PI / 180; // varies per place
-    var PERIOD = 48000; // ms for one full slow orbit
 
-    map.setView([lat, lng], startZoom, { animate: false });
-
+    var STEPS = 64;          // waypoints around the circle
+    var STEP_MS = 1800;      // time (and pan duration) per waypoint → slow drift
+    var i = 0;
     var self = this;
-    function frame(ts) {
-      if (self._t0 == null) self._t0 = ts;
-      var elapsed = ts - self._t0;
-      var phase = (elapsed / PERIOD) * 2 * Math.PI;
+    this._stopped = false;
 
-      var angle = startAngle + phase;
-      var dLat = radius * Math.sin(angle);
-      var dLng = (radius * Math.cos(angle)) / Math.max(0.2, Math.cos(lat * Math.PI / 180));
-
-      // Ease from the close "start" altitude out to the cruising "drift"
-      // altitude over the first orbit, then gently breathe.
-      var settle = Math.min(1, elapsed / PERIOD);
-      var z = startZoom + (driftZoom - startZoom) * settle
-              + 0.18 * Math.sin(phase * 0.5);
-
-      map.setView([lat + dLat, lng + dLng], z, { animate: false });
-      self._raf = global.requestAnimationFrame(frame);
+    function tick() {
+      if (self._stopped) return;
+      i++;
+      var a = startAngle + (i / STEPS) * 2 * Math.PI;
+      var dLat = (radiusM * Math.sin(a)) / mPerDegLat;
+      var dLng = (radiusM * Math.cos(a)) / Math.max(1, mPerDegLng);
+      map.panTo([lat + dLat, lng + dLng], {
+        animate: true, duration: STEP_MS / 1000, easeLinearity: 1
+      });
+      self._timer = global.setTimeout(tick, STEP_MS);
     }
-    this._raf = global.requestAnimationFrame(frame);
+
+    // A second sizing pass guards against a 0-size race on first paint, then the
+    // gentle orbit begins.
+    this._timer = global.setTimeout(function () {
+      if (self._stopped) return;
+      map.invalidateSize(false);
+      map.setView([lat, lng], zoom, { animate: false });
+      self._timer = global.setTimeout(tick, STEP_MS);
+    }, 350);
   };
 
   Flyover.prototype.stop = function () {
-    if (this._raf) global.cancelAnimationFrame(this._raf);
-    this._raf = null;
-    this._t0 = null;
+    this._stopped = true;
+    if (this._timer) { global.clearTimeout(this._timer); this._timer = null; }
   };
 
   Flyover.prototype.show = function (visible) {
